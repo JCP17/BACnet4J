@@ -63,7 +63,7 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  * the Device will send all propertys that are set. if you want poll all PropertyId {@link ReadPropertyRangeTest}.
  * 
  * @author Matthew Lohbihler
- * @author Arne Plöse
+ * @author Arne PlÃ¶se
  */
 public class ReadAllAvailableProperties {
     public static String BROADCAST_ADDRESS = "127.0.0.255";
