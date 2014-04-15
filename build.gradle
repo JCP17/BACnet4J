@@ -33,6 +33,7 @@ repositories {
 dependencies {
 	compile 'log4j:log4j:1.2.17'
 	compile 'org.apache.commons:commons-lang3:3.3.2'
+	compile 'org.rxtx:rxtx:2.1.7'
 }
 
 jar {
