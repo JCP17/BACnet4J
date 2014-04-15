@@ -23,6 +23,7 @@ apply {
 	apply plugin: 'osgi'
 }
 
+name= 'BACnet4J'
 group = 'serotonin'
 version = '1.0-SNAPSHOT'
 
