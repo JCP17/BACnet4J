@@ -1,0 +1,48 @@
+/*
+(c) J.Seitter
+This file is part of Bacnet4J.
+
+    Bacnet4J is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Bacnet4J is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Bacnet4J.  If not, see <http://www.gnu.org/licenses/>. 
+ */
+
+apply {
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	apply plugin: 'maven'
+	apply plugin: 'osgi'
+}
+
+group = 'serotonin'
+version = '1.0-SNAPSHOT'
+
+repositories {
+	 mavenCentral()
+}
+
+dependencies {
+	compile 'log4j:log4j:1.2.17'
+	compile 'org.apache.commons:commons-lang3:3.3.2'
+}
+
+jar {
+	manifest {
+		instruction 'Bundle-Vendor', 'serotonin'
+		instruction 'Bundle-Description', 'bacnet4j'
+		instruction 'Bundle-DocURL', ''
+		instruction 'Bundle-Version', '1.0'
+		instruction 'Import-Package', '!com.serotonin.io,!com.serotonin.messaging,!com.serotonin.util,!com.serotonin.util.queue,!org.apache.commons.lang3'
+		instruction 'Export-Package', 'com.serotonin.*'
+	}
+	from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+}
