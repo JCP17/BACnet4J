@@ -1,6 +1,6 @@
 /*
-(c) J.Seitter
-This file is part of Bacnet4J.
+	(c) 2014 J.Seitter
+	This file is part of Bacnet4J.
 
     Bacnet4J is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,6 +25,11 @@ apply {
 
 group = 'serotonin'
 version = '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+defaultTasks 'build'
 
 repositories {
 	 mavenCentral()
