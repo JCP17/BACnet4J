@@ -1,2 +1,2 @@
-rootProjectName = 'BACnet4J'
+rootProject.name = 'BACnet4J'
 
