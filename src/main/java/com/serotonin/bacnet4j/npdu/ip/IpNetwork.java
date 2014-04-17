@@ -45,6 +45,7 @@ import com.serotonin.bacnet4j.npdu.IncomingRequestProcessor;
 import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.Network;
 import com.serotonin.bacnet4j.npdu.NetworkIdentifier;
+import com.serotonin.bacnet4j.npdu.bbmd.BBMDevice;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
@@ -68,6 +69,8 @@ public class IpNetwork extends Network{
     private DatagramSocket socket;
     private Address broadcastAddress;
 
+    protected final BBMDevice bbmdevice;
+    
     public IpNetwork() {
         this(DEFAULT_BROADCAST_IP);
     }
@@ -93,6 +96,7 @@ public class IpNetwork extends Network{
         this.port = port;
         this.localBindAddress = localBindAddress;
         this.incomingMessageProcessor = new IncomingMessageProcessor();
+        this.bbmdevice = new BBMDevice(this);
     }
 
     @Override
@@ -224,6 +228,31 @@ public class IpNetwork extends Network{
             throw new BACnetException(e);
         }
     }
+    
+    /**
+     * used to forward packets, used by BBMD
+     * @param target
+     * @param queue
+     * @throws BACnetException 
+     */
+    public void forwardPacket(OctetString target, OctetString source, ByteQueue queue) throws BACnetException {
+    	// create a forwarded NPDU
+    	ByteQueue forwardNpdu = (ByteQueue)queue.clone();
+    	// skipping rest of bvlc header
+    	forwardNpdu.pop();
+    	forwardNpdu.pop();
+    	queue.pop();
+    	queue.pop();
+    	ByteQueue result = new ByteQueue();
+    	result.push(0x81);
+    	result.push(0x04);
+    	result.pushShort((short) (queue.size()+10));
+    	result.push(source.getBytes());
+    	result.push(forwardNpdu);
+    	//FIXME probably the incoming queue is not proper set up
+    	sendPacket(target.getInetSocketAddress(), result.popAll());
+    	
+    }
 
     private class IncomingMessageProcessor extends Thread{
     	/**
@@ -259,7 +288,7 @@ public class IpNetwork extends Network{
 //  IncomingMessageExecutor ime = new IncomingMessageExecutor(null, new ByteQueue(message), null);
 //  ime.run();
 //}
-    static class IncomingMessageExecutor extends IncomingRequestParser {
+     class IncomingMessageExecutor extends IncomingRequestParser {
     	
         public IncomingMessageExecutor(final Network network, final ByteQueue queue,
         							   final OctetString localFrom) {
@@ -267,18 +296,69 @@ public class IpNetwork extends Network{
         }
 
         @Override
-        protected void parseFrame() throws MessageValidationAssertionException {
+        protected boolean parseFrame() throws MessageValidationAssertionException {
             // Initial parsing of IP message.
             // BACnet/IP
             if (queue.pop() != (byte) 0x81)
                 throw new MessageValidationAssertionException("Protocol id is not BACnet/IP (0x81)");
-
             final byte function = queue.pop();
+            
+            if(function == 0x5) {
+            	LOG.debug("register Foreign Device received");
+            	ByteQueue result = new ByteQueue();
+            	result.push(0x81);
+            	result.push(0x00);
+            	result.pushShort((short)6);
+            	//BBMD Foreign Device Register
+            	if(bbmdevice.registerForeignDevice(queue, linkService)) {
+            		//send ACK
+            		LOG.debug("send ACK");
+            		result.pushShort((short)0x0000);
+            	} else {
+            		//send NACK
+            		LOG.debug("send NACK");
+            		result.pushShort((short)0x0030);
+            	}
+            	try {
+					sendPacket(linkService.getInetSocketAddress(), result.popAll());
+				} catch (BACnetException e) {
+					//FIXME bad exception propagation
+					throw new MessageValidationAssertionException(e.getMessage());
+				}
+            	return true;
+            }
+            
+            if(function == 0x9) {
+            	// handle broadcast distribution
+            	LOG.debug("received a distribute broadcast to network");
+            	try {
+					bbmdevice.handleDistributeBroadcastToNetwork(queue,linkService);
+				} catch (BACnetException e) {
+					// bad exception propagation
+					throw new MessageValidationAssertionException(e.getMessage());
+				}
+            	return true;
+            }
+            
+            if(function == 0xb) {
+            	//handle broadcast forwarding
+            	LOG.debug("received a broadcast for BBMD forward");
+       
+            	try {
+					bbmdevice.handleReceivedBroadcast(queue,linkService);
+				} catch (BACnetException e) {
+					// bad exception propagation
+					throw new MessageValidationAssertionException(e.getMessage());
+				}
+            	return false;
+            }
+            
             if (function != 0xa && function != 0xb && 
             	function != 0x4 && function != 0x0)
                 throw new MessageValidationAssertionException("Function is not "
                 		+ "unicast, broadcast, forward or foreign device reg "
                 		+ "anwser (0xa, 0xb, 0x4 or 0x0)");
+            
             final int length = BACnetUtils.popShort(queue);
             if (length != queue.size() + 4)
                 throw new MessageValidationAssertionException("Length field does"
@@ -290,14 +370,16 @@ public class IpNetwork extends Network{
                 if (result != 0)
                     LOG.info("Foreign device registration not successful! result: " + result);
                 // not APDU received, bail
-                return;
+                return false;
             }
             if (function == 0x4) {
                 // A forward. Use the address/port as the link service address.
                 byte[] addr = new byte[6];
                 queue.pop(addr);
                 linkService = new OctetString(addr);
+                return false;
             }
+            return false;
         }
     }
 

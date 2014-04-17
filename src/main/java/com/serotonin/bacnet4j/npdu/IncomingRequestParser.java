@@ -34,7 +34,7 @@ abstract public class IncomingRequestParser {
             else
                 servicesSupported = network.getTransport().getLocalDevice().getServicesSupported();
 
-            parseFrame();
+            if(parseFrame()) return;
 
             // Create the APDU.
             APDU apdu = parseApdu();
@@ -57,7 +57,7 @@ abstract public class IncomingRequestParser {
      * 
      * @throws MessageValidationAssertionException
      */
-    abstract protected void parseFrame() throws MessageValidationAssertionException;
+    abstract protected boolean parseFrame() throws MessageValidationAssertionException;
 
     public APDU parseApdu() throws Exception {
         // Network layer protocol control information. See 6.2.2

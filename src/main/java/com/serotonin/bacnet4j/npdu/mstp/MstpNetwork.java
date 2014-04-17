@@ -113,8 +113,9 @@ public class MstpNetwork extends Network {
         }
 
         @Override
-        protected void parseFrame() throws MessageValidationAssertionException {
+        protected boolean parseFrame() throws MessageValidationAssertionException {
             // no op. The frame has already been parsed.
+        	return false;
         }
     }
 
