@@ -157,7 +157,8 @@ public class IpNetwork extends Network{
     }
 
     /** The total length of the foreign device registration package. */
-    private static final int REGISTER_FOREIGN_DEVICE_LENGTH = 6;
+    private static final int REGISTER_FOREIGN_DEVICE_LENGTH = 0x06;
+    private static final int DELETE_FOREIGN_DEVICE_ENTRY_LENGTH = 0X0A;
 
     /**
      * Sends a foreign device registration request to addr. On successful registration (AKN), we are added
@@ -316,7 +317,7 @@ public class IpNetwork extends Network{
                 LOG.debug("register Foreign Device received");
                 ByteQueue result = new ByteQueue();
                 result.push(0x81);              // bacnet/ip
-                result.push(0x00);
+                result.push(0x00);              // is bvlc result
                 result.pushShort((short)REGISTER_FOREIGN_DEVICE_LENGTH);
                 //BBMD Foreign Device Register
                 if (bbmdevice.registerForeignDevice(queue, linkService)) {
@@ -342,8 +343,8 @@ public class IpNetwork extends Network{
                 LOG.debug("delete registered Foreign Device received");
                 ByteQueue result = new ByteQueue();
                 result.push(0x81);              // bacnet/ip
-                result.push(0x00);
-                result.pushShort((short)REGISTER_FOREIGN_DEVICE_LENGTH);
+                result.push(0x00);              // is bvlc result
+                result.pushShort((short)DELETE_FOREIGN_DEVICE_ENTRY_LENGTH);  // len of bvll message
                 // BBMD delete Foreign Device
                 if (bbmdevice.deleteForeignDeviceTableEntry(linkService)) {
                         //send ACK
