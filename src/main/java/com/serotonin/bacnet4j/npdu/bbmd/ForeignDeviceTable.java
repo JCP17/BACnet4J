@@ -80,7 +80,7 @@ public class ForeignDeviceTable {
                     throw new BACnetRejectException(RejectReason.bufferOverflow);
                 }
                 
-                long time = new Date().getTime();
+                final long time = new Date().getTime();
 		if(!foreignDeviceMap.keySet().contains(link)){
 			LOG.debug("adding device to table");
                         // add another 30 seconds to the ttl, this is a grace period according to J.5.2.3
