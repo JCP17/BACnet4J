@@ -28,6 +28,7 @@ import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceTable;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import java.util.logging.Level;
 
 
 public class BBMDevice {
@@ -66,7 +67,13 @@ public class BBMDevice {
 		int ttl = queue.popU2B();
 		
 		LOG.debug("foreign device request from " + from + " with TTL=" + ttl);
-		foreignDeviceTable.registerDevice(from, ttl);
+                try {
+                        foreignDeviceTable.registerDevice(from, ttl);
+                } catch (BACnetException ex) {
+                        LOG.error("cannot register device: " + ex.getMessage());
+                        return false;
+                }
+                
 		return true;
                 
 	} 
