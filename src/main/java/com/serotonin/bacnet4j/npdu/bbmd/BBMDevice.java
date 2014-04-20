@@ -28,7 +28,6 @@ import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceTable;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
-import java.util.logging.Level;
 
 
 public class BBMDevice {
@@ -78,9 +77,9 @@ public class BBMDevice {
                 
 	} 
 	
-	public boolean deleteForeignDeviceTableEntry() {
-		
-		return true;
+	public boolean deleteForeignDeviceTableEntry(final OctetString device) {
+
+		return foreignDeviceTable.deleteDevice(device);
                 
 	}
 	

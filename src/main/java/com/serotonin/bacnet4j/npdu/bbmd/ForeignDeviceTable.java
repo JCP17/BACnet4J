@@ -22,18 +22,18 @@ package com.serotonin.bacnet4j.npdu.bbmd;
 
 import com.serotonin.bacnet4j.exception.BACnetException;
 import com.serotonin.bacnet4j.exception.BACnetRejectException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.apache.log4j.Logger;
 
 import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceEntry;
 import com.serotonin.bacnet4j.type.enumerated.RejectReason;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.log4j.Logger;
 
 public class ForeignDeviceTable {
 	private static final Logger LOG = Logger.getLogger(ForeignDeviceTable.class);
@@ -93,6 +93,22 @@ public class ForeignDeviceTable {
                         entry.setEntryTime(new Date().getTime());
 		}
 	}
+        
+        /**
+         * delete foreign device registration from foreign device list
+         * @param link the device to delete
+         * @return boolean true if device was deleted, false if not
+         */
+        public synchronized boolean deleteDevice(final OctetString link) {
+                
+                ForeignDeviceEntry entry = foreignDeviceMap.get(link);
+                if (entry != null) {
+                        foreignDeviceMap.remove(link);
+                        return true;
+                }
+                return false;
+                
+        }
 	
 	public Set<OctetString> getForeignDeviceBroadcastList() {
 		
@@ -164,5 +180,21 @@ public class ForeignDeviceTable {
 		}
 		
 	}
+
+        @Override
+        public String toString() {
+                
+                StringBuilder sb = new StringBuilder();
+                sb.append("current foreign devices:");
+                for (Map.Entry<OctetString, ForeignDeviceEntry> entry : foreignDeviceMap.entrySet()) {
+
+                        long remainingTime = (entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime();
+                        sb.append("\t").append(entry.getKey()).append(": ").append(remainingTime).append(" sec");
+                        
+                }
+                
+                return sb.toString();
+                
+        }
 	
 }
