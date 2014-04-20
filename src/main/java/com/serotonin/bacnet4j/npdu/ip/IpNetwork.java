@@ -46,6 +46,7 @@ import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.Network;
 import com.serotonin.bacnet4j.npdu.NetworkIdentifier;
 import com.serotonin.bacnet4j.npdu.bbmd.BBMDevice;
+import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceEntry;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
@@ -159,6 +160,7 @@ public class IpNetwork extends Network{
     /** The total length of the foreign device registration package. */
     private static final int REGISTER_FOREIGN_DEVICE_LENGTH = 0x06;
     private static final int DELETE_FOREIGN_DEVICE_ENTRY_LENGTH = 0X0A;
+    private static final int READ_FOREIGN_DEVICE_TABLE_LENGTH = 0x04;
 
     /**
      * Sends a foreign device registration request to addr. On successful registration (AKN), we are added
@@ -337,7 +339,30 @@ public class IpNetwork extends Network{
                         throw new MessageValidationAssertionException(e.getMessage());
                 }
                 return true;
-
+                
+            } else if (function == 0x06) {
+                // handle read fdt
+                LOG.debug("read foreign device table received");
+                ByteQueue deviceTable = bbmdevice.readForeignDeviceTable();
+                short len = (short)deviceTable.size();
+                if (len % 10 != 0) {
+                        LOG.fatal("invalid len from readForeignDeviceTable(): " + len + ", must be N*10 octets long.");
+                        throw new MessageValidationAssertionException("invalid len");
+                }
+                ByteQueue result = new ByteQueue();
+                result.push(0x81);              // bacnet/ip
+                result.push(0x07);              // is read foreign device table ack
+                result.pushShort((short)(READ_FOREIGN_DEVICE_TABLE_LENGTH + len));  // len of bvll message
+                result.push(deviceTable);
+                
+                try {
+                        sendPacket(linkService.getInetSocketAddress(), result.popAll());
+                } catch (BACnetException e) {
+                        //FIXME bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
+                return true;
+                
             } else if (function == 0x08) {
                 // handle delete registered device
                 LOG.debug("delete registered Foreign Device received");

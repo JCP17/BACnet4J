@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.log4j.Logger;
+import org.free.bacnet4j.util.ByteQueue;
 
 public class ForeignDeviceTable {
 	private static final Logger LOG = Logger.getLogger(ForeignDeviceTable.class);
@@ -107,6 +108,30 @@ public class ForeignDeviceTable {
                         return true;
                 }
                 return false;
+                
+        }
+        
+        /**
+         * read foreign device table
+         * @return byte queue containing readForeignDeviceTable results
+         */
+        public synchronized ByteQueue readForeignDeviceTable() {
+                
+                ByteQueue bq = new ByteQueue();
+                for (Map.Entry<OctetString, ForeignDeviceEntry> entry : foreignDeviceMap.entrySet()) {
+                        // each entry consists of 6 octet address, 2 octet ttl, 2 octet remaining time in list
+                        byte[] address = entry.getKey().getBytes();
+                        bq.push(address);
+                        
+                        int ttl = entry.getValue().getTtl();
+                        bq.pushU2B(ttl);
+                        
+                        int remainingTime = (int)((entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime());
+                        bq.pushU2B(remainingTime);
+                        
+                }
+                
+                return bq;
                 
         }
 	

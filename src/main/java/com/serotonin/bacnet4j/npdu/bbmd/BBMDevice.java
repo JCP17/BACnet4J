@@ -28,6 +28,7 @@ import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceTable;
 import com.serotonin.bacnet4j.npdu.ip.IpNetwork;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
+import java.util.Map;
 
 
 public class BBMDevice {
@@ -83,9 +84,9 @@ public class BBMDevice {
                 
 	}
 	
-	public boolean readForeignDeviceTable() {
+	public ByteQueue readForeignDeviceTable() {
 		
-		return true;
+                return foreignDeviceTable.readForeignDeviceTable();
                 
 	}
 	
