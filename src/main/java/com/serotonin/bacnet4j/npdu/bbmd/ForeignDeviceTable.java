@@ -79,10 +79,13 @@ public class ForeignDeviceTable {
                     LOG.fatal("cannot register foreign device " + link.toString() + " because foreign device table has reached its maximum size of " + FOREIGN_DEVICE_TABLE_MAX_ENTRIES + " entries.");
                     throw new BACnetRejectException(RejectReason.bufferOverflow);
                 }
-		
+                
+                long time = new Date().getTime();
 		if(!foreignDeviceMap.keySet().contains(link)){
 			LOG.debug("adding device to table");
-                        ForeignDeviceEntry entry = new ForeignDeviceEntry(new Date().getTime(), ttl, link);
+                        // add another 30 seconds to the ttl, this is a grace period according to J.5.2.3
+                        final int ttlIncludingGracePeriod = ttl + 30;
+                        ForeignDeviceEntry entry = new ForeignDeviceEntry(time, ttlIncludingGracePeriod, link);
 			foreignDeviceMap.put(link, entry);
 		} else {
 			LOG.debug("device already registered, only updating time");
@@ -91,7 +94,7 @@ public class ForeignDeviceTable {
                             LOG.fatal("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
                             throw new BACnetException("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
                         }
-                        entry.setEntryTime(new Date().getTime());
+                        entry.setEntryTime(time);
 		}
 	}
         
