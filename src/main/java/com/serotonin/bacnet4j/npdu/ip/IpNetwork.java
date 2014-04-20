@@ -40,12 +40,14 @@ import com.serotonin.bacnet4j.apdu.APDU;
 import com.serotonin.bacnet4j.base.BACnetUtils;
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.exception.BACnetException;
+import com.serotonin.bacnet4j.exception.BACnetRejectException;
 import com.serotonin.bacnet4j.npdu.IncomingRequestParser;
 import com.serotonin.bacnet4j.npdu.IncomingRequestProcessor;
 import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;
 import com.serotonin.bacnet4j.npdu.Network;
 import com.serotonin.bacnet4j.npdu.NetworkIdentifier;
 import com.serotonin.bacnet4j.npdu.bbmd.BBMDevice;
+import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceEntry;
 import com.serotonin.bacnet4j.transport.Transport;
 import com.serotonin.bacnet4j.type.constructed.Address;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
@@ -157,7 +159,9 @@ public class IpNetwork extends Network{
     }
 
     /** The total length of the foreign device registration package. */
-    private static final int REGISTER_FOREIGN_DEVICE_LENGTH = 6;
+    private static final int REGISTER_FOREIGN_DEVICE_LENGTH = 0x06;
+    private static final int DELETE_FOREIGN_DEVICE_ENTRY_LENGTH = 0X0A;
+    private static final int READ_FOREIGN_DEVICE_TABLE_LENGTH = 0x04;
 
     /**
      * Sends a foreign device registration request to addr. On successful registration (AKN), we are added
@@ -218,43 +222,50 @@ public class IpNetwork extends Network{
             isa = recipient.getMacAddress().getInetSocketAddress();
         sendPacket(isa, queue.popAll());
     }
-
+    
+    /**
+     * send an udp packet to an ip address
+     * @param addr the address to send the data to
+     * @param data the data as byte array
+     * @throws BACnetException 
+     */
     private void sendPacket(InetSocketAddress addr, byte[] data) throws BACnetException {
         try {
             DatagramPacket packet = new DatagramPacket(data, data.length, addr);
             socket.send(packet);
-        }
-        catch (Exception e) {
+        } catch (IOException e) {
             throw new BACnetException(e);
         }
     }
     
     /**
-     * used to forward packets, used by BBMD
-     * @param target
-     * @param queue
+     * forward a packet in a byte queue, used to forward packets by BBMD
+     * @param target the target address for the packet
+     * @param source the source address of the packet
+     * @param queue the packet as ByteQueue
      * @throws BACnetException 
      */
     public void forwardPacket(OctetString target, OctetString source, ByteQueue queue) throws BACnetException {
     	// create a forwarded NPDU
     	ByteQueue forwardNpdu = (ByteQueue)queue.clone();
     	// skipping rest of bvlc header
-    	forwardNpdu.pop();
-    	forwardNpdu.pop();
-    	queue.pop();
-    	queue.pop();
-    	ByteQueue result = new ByteQueue();
-    	result.push(0x81);
-    	result.push(0x04);
-    	result.pushShort((short) (queue.size()+10));
-    	result.push(source.getBytes());
-    	result.push(forwardNpdu);
+    	forwardNpdu.pop();              // bvlc type
+    	forwardNpdu.pop();              // bvlc function
+    	queue.pop();                    // bvlc type
+    	queue.pop();                    // bvlc function
+    	
+        ByteQueue result = new ByteQueue();
+    	result.push(0x81);              // bacnet/ip
+    	result.push(0x04);              // forwarded npdu
+    	result.pushShort((short)(queue.size()+10));    // length, original npdu length + 10 for the header
+    	result.push(source.getBytes()); // source address
+    	result.push(forwardNpdu);       // original npdu
     	//FIXME probably the incoming queue is not proper set up
     	sendPacket(target.getInetSocketAddress(), result.popAll());
     	
     }
 
-    private class IncomingMessageProcessor extends Thread{
+    private class IncomingMessageProcessor extends Thread {
     	/**
     	 * Runnable that handles incoming messages
     	 */
@@ -290,89 +301,148 @@ public class IpNetwork extends Network{
 //}
      class IncomingMessageExecutor extends IncomingRequestParser {
     	
-        public IncomingMessageExecutor(final Network network, final ByteQueue queue,
-        							   final OctetString localFrom) {
+        public IncomingMessageExecutor(final Network network, final ByteQueue queue, final OctetString localFrom) {
             super(network, queue, localFrom);
         }
 
+        /**
+         * parse the incoming bacnet/ip frame
+         * @return boolean
+         * @throws MessageValidationAssertionException 
+         */
         @Override
         protected boolean parseFrame() throws MessageValidationAssertionException {
             // Initial parsing of IP message.
             // BACnet/IP
-            if (queue.pop() != (byte) 0x81)
+            if (queue.pop() != (byte)0x81) {
                 throw new MessageValidationAssertionException("Protocol id is not BACnet/IP (0x81)");
-            final byte function = queue.pop();
-            
-            if(function == 0x5) {
-            	LOG.debug("register Foreign Device received");
-            	ByteQueue result = new ByteQueue();
-            	result.push(0x81);
-            	result.push(0x00);
-            	result.pushShort((short)6);
-            	//BBMD Foreign Device Register
-            	if(bbmdevice.registerForeignDevice(queue, linkService)) {
-            		//send ACK
-            		LOG.debug("send ACK");
-            		result.pushShort((short)0x0000);
-            	} else {
-            		//send NACK
-            		LOG.debug("send NACK");
-            		result.pushShort((short)0x0030);
-            	}
-            	try {
-					sendPacket(linkService.getInetSocketAddress(), result.popAll());
-				} catch (BACnetException e) {
-					//FIXME bad exception propagation
-					throw new MessageValidationAssertionException(e.getMessage());
-				}
-            	return true;
             }
             
-            if(function == 0x9) {
+            // the bacnet function code
+            final byte function = queue.pop();
+
+            // check the packet length
+            final int length = BACnetUtils.popShort(queue);
+            if (length != queue.size() + 4) {
+                throw new MessageValidationAssertionException("Length field does not match data: given=" + length + ", expected=" + (queue.size() + 4));
+            }
+            
+            if (function == 0x05) {
+                // handle register device
+                LOG.debug("register Foreign Device received");
+                final ByteQueue result = new ByteQueue();
+                result.push(0x81);              // bacnet/ip
+                result.push(0x00);              // is bvlc result
+                result.pushShort((short)REGISTER_FOREIGN_DEVICE_LENGTH);
+                //BBMD Foreign Device Register
+                if (bbmdevice.registerForeignDevice(queue, linkService)) {
+                        //send ACK
+                        LOG.debug("send ACK");
+                        result.pushShort((short)0x0000);
+                } else {
+                        //send NACK
+                        LOG.debug("send NAK");
+                        result.pushShort((short)0x0030);
+                }
+
+                try {
+                        sendPacket(linkService.getInetSocketAddress(), result.popAll());
+                } catch (BACnetException e) {
+                        //FIXME bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
+                return true;
+                
+            } else if (function == 0x06) {
+                // handle read fdt
+                LOG.debug("read foreign device table received");
+                final ByteQueue deviceTable = bbmdevice.readForeignDeviceTable();
+                short len = (short)deviceTable.size();
+                if (len % 10 != 0) {
+                        LOG.fatal("invalid len from readForeignDeviceTable(): " + len + ", must be N*10 octets long.");
+                        throw new MessageValidationAssertionException("invalid len");
+                }
+                final ByteQueue result = new ByteQueue();
+                result.push(0x81);              // bacnet/ip
+                result.push(0x07);              // is read foreign device table ack
+                result.pushShort((short)(READ_FOREIGN_DEVICE_TABLE_LENGTH + len));  // len of bvll message
+                result.push(deviceTable);
+                
+                try {
+                        sendPacket(linkService.getInetSocketAddress(), result.popAll());
+                } catch (BACnetException e) {
+                        //FIXME bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
+                return true;
+                
+            } else if (function == 0x08) {
+                // handle delete registered device
+                LOG.debug("delete registered Foreign Device received");
+                final ByteQueue result = new ByteQueue();
+                result.push(0x81);              // bacnet/ip
+                result.push(0x00);              // is bvlc result
+                result.pushShort((short)DELETE_FOREIGN_DEVICE_ENTRY_LENGTH);  // len of bvll message
+                // BBMD delete Foreign Device
+                if (bbmdevice.deleteForeignDeviceTableEntry(linkService)) {
+                        //send ACK
+                        LOG.debug("send ACK");
+                        result.pushShort((short)0x0000);
+                } else {
+                        //send NACK
+                        LOG.debug("send NAK");
+                        result.pushShort((short)0x0050);
+                }
+
+                try {
+                        sendPacket(linkService.getInetSocketAddress(), result.popAll());
+                } catch (BACnetException e) {
+                        //FIXME bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
+                return true;
+            
+            } else if (function == 0x09) {
             	// handle broadcast distribution
             	LOG.debug("received a distribute broadcast to network");
             	try {
-					bbmdevice.handleDistributeBroadcastToNetwork(queue,linkService);
-				} catch (BACnetException e) {
-					// bad exception propagation
-					throw new MessageValidationAssertionException(e.getMessage());
-				}
+                        bbmdevice.handleDistributeBroadcastToNetwork(queue, linkService);
+                } catch (BACnetException e) {
+                        // bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
             	return true;
-            }
             
-            if(function == 0xb) {
+            } else if (function == 0x0b) {
             	//handle broadcast forwarding
             	LOG.debug("received a broadcast for BBMD forward");
        
             	try {
-					bbmdevice.handleReceivedBroadcast(queue,linkService);
-				} catch (BACnetException e) {
-					// bad exception propagation
-					throw new MessageValidationAssertionException(e.getMessage());
-				}
+                        bbmdevice.handleReceivedBroadcast(queue,linkService);
+                } catch (BACnetException e) {
+                        // bad exception propagation
+                        throw new MessageValidationAssertionException(e.getMessage());
+                }
             	return false;
+                
             }
             
-            if (function != 0xa && function != 0xb && 
-            	function != 0x4 && function != 0x0)
+            if (function != 0x0A && function != 0x04 && function != 0x00) {
                 throw new MessageValidationAssertionException("Function is not "
                 		+ "unicast, broadcast, forward or foreign device reg "
-                		+ "anwser (0xa, 0xb, 0x4 or 0x0)");
+                		+ "anwser (0xa, 0x4 or 0x0)");
+            }
             
-            final int length = BACnetUtils.popShort(queue);
-            if (length != queue.size() + 4)
-                throw new MessageValidationAssertionException("Length field does"
-                		+ " not match data: given=" + length + ", expected=" 
-                		+ (queue.size() + 4));
             // Answer to foreign device registration
-            if (function == 0x0) {
+            if (function == 0x00) {
                 final int result = BACnetUtils.popShort(queue);
-                if (result != 0)
+                if (result != 0) {
                     LOG.info("Foreign device registration not successful! result: " + result);
+                }
                 // not APDU received, bail
                 return false;
-            }
-            if (function == 0x4) {
+                
+            } else if (function == 0x04) {
                 // A forward. Use the address/port as the link service address.
                 byte[] addr = new byte[6];
                 queue.pop(addr);
@@ -380,6 +450,7 @@ public class IpNetwork extends Network{
                 return false;
             }
             return false;
+            
         }
     }
 
