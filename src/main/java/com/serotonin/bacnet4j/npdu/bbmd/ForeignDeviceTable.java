@@ -33,31 +33,56 @@ import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceEntry;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
 
 public class ForeignDeviceTable {
-	private static Logger LOG = Logger.getLogger(ForeignDeviceTable.class);
-
-	private HashMap<OctetString, ForeignDeviceEntry> foreignDeviceMap= new HashMap<OctetString, ForeignDeviceEntry>();
-	private DeviceExpiryThread expiryThread;
+	private static final Logger LOG = Logger.getLogger(ForeignDeviceTable.class);
+        
+        // TODO check out maximum size of table
+        private static final int FOREIGN_DEVICE_TABLE_MAX_ENTRIES = 512;
+                
+	private final HashMap<OctetString, ForeignDeviceEntry> foreignDeviceMap = new HashMap<>();
+	private final DeviceExpiryThread expiryThread;
 	
-	//TODO limit max size of table and reject DeviceRegistrations
 	public ForeignDeviceTable() {
-		expiryThread= new DeviceExpiryThread();
+            
+		expiryThread = new DeviceExpiryThread();
 		expiryThread.start();
+                
 	}
 	
 	
 	public void shutdown() {
-		expiryThread.running.set(false);
+            
+                expiryThread.halt();
+                
 	}
 	
-	public void registerDevice(OctetString link, int ttl) {
+        /**
+         * register a foreign device entry
+         * @param link device
+         * @param ttl time to live for entry in seconds
+         */
+        public void registerDevice(final OctetString link, final int ttl) {
+            
+                if (ttl <= 0) {
+                    // invalid ttl given
+                    throw new IllegalArgumentException("Illegal ttl given: " + ttl);
+                }
+                
+                if (foreignDeviceMap.size() >= FOREIGN_DEVICE_TABLE_MAX_ENTRIES) {
+                    // TODO find a better exception here
+                    throw new RuntimeException("cannot register foreign device " + link.toString() + " because foreign device table has reached its maximum size of " + FOREIGN_DEVICE_TABLE_MAX_ENTRIES + " entries.");
+                }
 		
-		ForeignDeviceEntry entry = new ForeignDeviceEntry(new Date().getTime(), ttl, link);
 		if(!foreignDeviceMap.keySet().contains(link)){
 			LOG.debug("adding device to table");
-			foreignDeviceMap.put(link,entry);
+                        ForeignDeviceEntry entry = new ForeignDeviceEntry(new Date().getTime(), ttl, link);
+			foreignDeviceMap.put(link, entry);
 		} else {
 			LOG.debug("device already registered, only updating time");
-			foreignDeviceMap.get(link).setEntryTime(new Date().getTime());
+                        ForeignDeviceEntry entry = foreignDeviceMap.get(link);
+                        if (entry == null) {
+                            throw new RuntimeException("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
+                        }
+                        entry.setEntryTime(new Date().getTime());
 		}
 	}
 	
@@ -67,41 +92,67 @@ public class ForeignDeviceTable {
 		
 	}
 	
+        /**
+         * thread for device expiry checks
+         * checks on a regulary interval which registered foreign devices have expired
+         */
 	class DeviceExpiryThread extends Thread {
 
-		AtomicBoolean running = new AtomicBoolean(true);
+		private final AtomicBoolean running = new AtomicBoolean(true);
 		
 		public DeviceExpiryThread() {
+                    
 			this.setName("FDT Expiry Thread");
+                        
 		}
+                
+                /**
+                 * halt this thread
+                 */
+                public void halt() {
+                    
+                    running.set(false);
+                    this.interrupt();
+                    
+                }
 		
 		@Override
 		public void run() {
 			
 			while(running.get()) {
+                            
 				LOG.debug("doing foreign device expiry");
-				List<OctetString> expiredDevices = new ArrayList<OctetString>();
+				List<OctetString> expiredDevices = new ArrayList<>();
 				for(ForeignDeviceEntry e : foreignDeviceMap.values()) {
+                                        // find all devices which are expired
 					long currentTime = new Date().getTime();
-					long timeSpent = (currentTime-e.getEntryTime())/1000;
-					if(timeSpent > e.getTtl())  expiredDevices.add(e.getLink());
-					LOG.debug(e.toString()+ " -> time spent: "+timeSpent+" secs");
+					long timeSpent = (currentTime - e.getEntryTime()) / 1000;
+					if(timeSpent > e.getTtl()) {
+                                                expiredDevices.add(e.getLink());
+                                        }
+					LOG.debug(e.toString() + " -> time spent: " + timeSpent + " secs");
+                                        
 				}
+                                
+                                // remove all expired devices
 				for(OctetString s : expiredDevices) {
-					LOG.debug("remove expired device "+s.toIpPortString());
+                                    
+					LOG.debug("remove expired device " + s.toIpPortString());
 					foreignDeviceMap.remove(s);
+                                        
 				}
 				
 				try {
 					Thread.sleep(10000);
 				} catch (InterruptedException e1) {
-					LOG.error("exc",e1);
+					// if thread is interrupted (e.g. with halt())
+                                        // break the classes main loop to stop instantly
+                                        break;
 				}
+                                
 			}
 		
 		}
-		
-		
 		
 	}
 	
