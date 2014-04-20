@@ -70,7 +70,7 @@ public class ForeignDeviceTable {
          */
         public void registerDevice(final OctetString link, final int ttl) throws BACnetRejectException, BACnetException {
             
-                if (ttl <= 0) {
+                if (ttl <= 0 || ttl > 65535) {
                     // invalid ttl given
                     throw new IllegalArgumentException("Illegal ttl given: " + ttl);
                 }
