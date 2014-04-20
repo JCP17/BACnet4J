@@ -85,11 +85,11 @@ public class ForeignDeviceTable {
 			LOG.debug("adding device to table");
                         // add another 30 seconds to the ttl, this is a grace period according to J.5.2.3
                         final int ttlIncludingGracePeriod = ttl + 30;
-                        ForeignDeviceEntry entry = new ForeignDeviceEntry(time, ttlIncludingGracePeriod, link);
+                        final ForeignDeviceEntry entry = new ForeignDeviceEntry(time, ttlIncludingGracePeriod, link);
 			foreignDeviceMap.put(link, entry);
 		} else {
 			LOG.debug("device already registered, only updating time");
-                        ForeignDeviceEntry entry = foreignDeviceMap.get(link);
+                        final ForeignDeviceEntry entry = foreignDeviceMap.get(link);
                         if (entry == null) {
                             LOG.fatal("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
                             throw new BACnetException("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
@@ -105,7 +105,7 @@ public class ForeignDeviceTable {
          */
         public synchronized boolean deleteDevice(final OctetString link) {
                 
-                ForeignDeviceEntry entry = foreignDeviceMap.get(link);
+                final ForeignDeviceEntry entry = foreignDeviceMap.get(link);
                 if (entry != null) {
                         foreignDeviceMap.remove(link);
                         return true;
@@ -120,16 +120,16 @@ public class ForeignDeviceTable {
          */
         public synchronized ByteQueue readForeignDeviceTable() {
                 
-                ByteQueue bq = new ByteQueue();
+                final ByteQueue bq = new ByteQueue();
                 for (Map.Entry<OctetString, ForeignDeviceEntry> entry : foreignDeviceMap.entrySet()) {
                         // each entry consists of 6 octet address, 2 octet ttl, 2 octet remaining time in list
-                        byte[] address = entry.getKey().getBytes();
+                        final byte[] address = entry.getKey().getBytes();
                         bq.push(address);
                         
-                        int ttl = entry.getValue().getTtl();
+                        final int ttl = entry.getValue().getTtl();
                         bq.pushU2B(ttl);
                         
-                        int remainingTime = (int)((entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime());
+                        final int remainingTime = (int)((entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime());
                         bq.pushU2B(remainingTime);
                         
                 }
@@ -212,11 +212,11 @@ public class ForeignDeviceTable {
         @Override
         public String toString() {
                 
-                StringBuilder sb = new StringBuilder();
+                final StringBuilder sb = new StringBuilder();
                 sb.append("current foreign devices:");
                 for (Map.Entry<OctetString, ForeignDeviceEntry> entry : foreignDeviceMap.entrySet()) {
 
-                        long remainingTime = (entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime();
+                        final long remainingTime = (entry.getValue().getEntryTime() + (entry.getValue().getTtl() * 1000)) - new Date().getTime();
                         sb.append("\t").append(entry.getKey()).append(": ").append(remainingTime).append(" sec");
                         
                 }

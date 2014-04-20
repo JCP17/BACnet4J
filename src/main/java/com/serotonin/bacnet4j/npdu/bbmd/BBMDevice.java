@@ -111,6 +111,6 @@ public class BBMDevice {
 	public void handleDistributeBroadcastToNetwork(final ByteQueue queue, final OctetString from) throws BACnetException {
 
                 network.forwardPacket(network.getLocalBroadcastAddress().getMacAddress(), from, queue);
-		
-	}
+
+        }
 }

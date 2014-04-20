@@ -317,7 +317,7 @@ public class IpNetwork extends Network{
             if (function == 0x05) {
                 // handle register device
                 LOG.debug("register Foreign Device received");
-                ByteQueue result = new ByteQueue();
+                final ByteQueue result = new ByteQueue();
                 result.push(0x81);              // bacnet/ip
                 result.push(0x00);              // is bvlc result
                 result.pushShort((short)REGISTER_FOREIGN_DEVICE_LENGTH);
@@ -343,13 +343,13 @@ public class IpNetwork extends Network{
             } else if (function == 0x06) {
                 // handle read fdt
                 LOG.debug("read foreign device table received");
-                ByteQueue deviceTable = bbmdevice.readForeignDeviceTable();
+                final ByteQueue deviceTable = bbmdevice.readForeignDeviceTable();
                 short len = (short)deviceTable.size();
                 if (len % 10 != 0) {
                         LOG.fatal("invalid len from readForeignDeviceTable(): " + len + ", must be N*10 octets long.");
                         throw new MessageValidationAssertionException("invalid len");
                 }
-                ByteQueue result = new ByteQueue();
+                final ByteQueue result = new ByteQueue();
                 result.push(0x81);              // bacnet/ip
                 result.push(0x07);              // is read foreign device table ack
                 result.pushShort((short)(READ_FOREIGN_DEVICE_TABLE_LENGTH + len));  // len of bvll message
@@ -366,7 +366,7 @@ public class IpNetwork extends Network{
             } else if (function == 0x08) {
                 // handle delete registered device
                 LOG.debug("delete registered Foreign Device received");
-                ByteQueue result = new ByteQueue();
+                final ByteQueue result = new ByteQueue();
                 result.push(0x81);              // bacnet/ip
                 result.push(0x00);              // is bvlc result
                 result.pushShort((short)DELETE_FOREIGN_DEVICE_ENTRY_LENGTH);  // len of bvll message
