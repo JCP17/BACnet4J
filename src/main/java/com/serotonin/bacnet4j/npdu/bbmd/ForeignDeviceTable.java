@@ -20,6 +20,8 @@
  */
 package com.serotonin.bacnet4j.npdu.bbmd;
 
+import com.serotonin.bacnet4j.exception.BACnetException;
+import com.serotonin.bacnet4j.exception.BACnetRejectException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -30,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.log4j.Logger;
 
 import com.serotonin.bacnet4j.npdu.bbmd.ForeignDeviceEntry;
+import com.serotonin.bacnet4j.type.enumerated.RejectReason;
 import com.serotonin.bacnet4j.type.primitive.OctetString;
 
 public class ForeignDeviceTable {
@@ -61,8 +64,10 @@ public class ForeignDeviceTable {
          * register a foreign device entry
          * @param link device
          * @param ttl time to live for entry in seconds
+         * @throws com.serotonin.bacnet4j.exception.BACnetRejectException
+         * @throws com.serotonin.bacnet4j.exception.BACnetException
          */
-        public void registerDevice(final OctetString link, final int ttl) {
+        public void registerDevice(final OctetString link, final int ttl) throws BACnetRejectException, BACnetException {
             
                 if (ttl <= 0) {
                     // invalid ttl given
@@ -70,8 +75,8 @@ public class ForeignDeviceTable {
                 }
                 
                 if (foreignDeviceMap.size() >= FOREIGN_DEVICE_TABLE_MAX_ENTRIES) {
-                    // TODO find a better exception here
-                    throw new RuntimeException("cannot register foreign device " + link.toString() + " because foreign device table has reached its maximum size of " + FOREIGN_DEVICE_TABLE_MAX_ENTRIES + " entries.");
+                    LOG.fatal("cannot register foreign device " + link.toString() + " because foreign device table has reached its maximum size of " + FOREIGN_DEVICE_TABLE_MAX_ENTRIES + " entries.");
+                    throw new BACnetRejectException(RejectReason.bufferOverflow);
                 }
 		
 		if(!foreignDeviceMap.keySet().contains(link)){
@@ -82,7 +87,8 @@ public class ForeignDeviceTable {
 			LOG.debug("device already registered, only updating time");
                         ForeignDeviceEntry entry = foreignDeviceMap.get(link);
                         if (entry == null) {
-                            throw new RuntimeException("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
+                            LOG.fatal("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
+                            throw new BACnetException("cannot update ForeignDeviceEntry for link " + link.toString() + " because link was not found");
                         }
                         entry.setEntryTime(new Date().getTime());
 		}
