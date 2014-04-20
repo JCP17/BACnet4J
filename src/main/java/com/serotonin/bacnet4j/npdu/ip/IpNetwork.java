@@ -241,6 +241,7 @@ public class IpNetwork extends Network{
     /**
      * forward a packet in a byte queue, used to forward packets by BBMD
      * @param target the target address for the packet
+     * @param source the source address of the packet
      * @param queue the packet as ByteQueue
      * @throws BACnetException 
      */
