@@ -33,21 +33,24 @@ import com.serotonin.bacnet4j.type.primitive.OctetString;
 public class BBMDevice {
 
 	private static final Logger LOG = Logger.getLogger(BBMDevice.class);
-		
-	private ForeignDeviceTable foreignDeviceTable;
+	private final ForeignDeviceTable foreignDeviceTable;
+	private final IpNetwork network;
 	
-	private IpNetwork network;
-	
-	public BBMDevice(IpNetwork ipNetwork) {
-		this.network=ipNetwork;
-		foreignDeviceTable=new ForeignDeviceTable();
+	public BBMDevice(final IpNetwork ipNetwork) {
+            
+		network = ipNetwork;
+		foreignDeviceTable = new ForeignDeviceTable();
+                
 	}
 	
 	/**
 	 * handle register foreign device call
+         * @param queue
+         * @param from
+         * @return 
 	 * @throws MessageValidationAssertionException 
 	 */
-	public boolean registerForeignDevice(ByteQueue queue, OctetString from) throws MessageValidationAssertionException {
+	public boolean registerForeignDevice(final ByteQueue queue, final OctetString from) throws MessageValidationAssertionException {
 		/*
 			BVLC Length: 2-octets X'0006' Length, in octets, of the BVLL message
 			Time-to-Live 2-octets T Time-to-Live T, in seconds
@@ -56,41 +59,51 @@ public class BBMDevice {
 		*/
 		
 		int length = queue.popU2B();
-		if(length != 6) throw new MessageValidationAssertionException("length field is not 6 for function 0x5");
+		if(length != 6) {
+                        throw new MessageValidationAssertionException("length field is not 6 for function 0x5");
+                }
+                
 		int ttl = queue.popU2B();
 		
-		LOG.debug("foreign device request from "+from+" with TTL="+ttl);
-		
+		LOG.debug("foreign device request from " + from + " with TTL=" + ttl);
 		foreignDeviceTable.registerDevice(from, ttl);
-		
 		return true;
+                
 	} 
 	
 	public boolean deleteForeignDeviceTableEntry() {
 		
 		return true;
+                
 	}
 	
 	public boolean readForeignDeviceTable() {
 		
 		return true;
+                
 	}
 	
 	/**
 	 * distribute a received broadcast
 	 * @param queue
+         * @param from
 	 * @throws BACnetException 
 	 */
-	public void handleReceivedBroadcast(ByteQueue queue, OctetString from) throws BACnetException {
-		LOG.debug("processing broadcast for BBMD");
+	public void handleReceivedBroadcast(final ByteQueue queue, final OctetString from) throws BACnetException {
+		
+                LOG.debug("processing broadcast for BBMD");
 		for(OctetString target : foreignDeviceTable.getForeignDeviceBroadcastList()) {
+                    
 			LOG.debug("forward to "+target);
-	       network.forwardPacket(target, from, queue);
+                        network.forwardPacket(target, from, queue);
+                        
 		}
+                
 	}
 	
-	public void handleDistributeBroadcastToNetwork(ByteQueue queue, OctetString from) throws BACnetException {
-		network.forwardPacket(network.getLocalBroadcastAddress().getMacAddress(), from, queue);
+	public void handleDistributeBroadcastToNetwork(final ByteQueue queue, final OctetString from) throws BACnetException {
+
+                network.forwardPacket(network.getLocalBroadcastAddress().getMacAddress(), from, queue);
 		
 	}
 }
