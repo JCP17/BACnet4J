@@ -38,11 +38,13 @@ public class ForeignDeviceTable {
         // TODO check out maximum size of table
         private static final int FOREIGN_DEVICE_TABLE_MAX_ENTRIES = 512;
                 
-	private final HashMap<OctetString, ForeignDeviceEntry> foreignDeviceMap = new HashMap<>();
+	private final HashMap<OctetString, ForeignDeviceEntry> foreignDeviceMap;
 	private final DeviceExpiryThread expiryThread;
 	
 	public ForeignDeviceTable() {
-            
+                
+                foreignDeviceMap = new HashMap<>();
+                
 		expiryThread = new DeviceExpiryThread();
 		expiryThread.start();
                 
@@ -98,11 +100,12 @@ public class ForeignDeviceTable {
          */
 	class DeviceExpiryThread extends Thread {
 
-		private final AtomicBoolean running = new AtomicBoolean(true);
+		private final AtomicBoolean running;
 		
 		public DeviceExpiryThread() {
                     
-			this.setName("FDT Expiry Thread");
+			setName("FDT Expiry Thread");
+                        running = new AtomicBoolean(true);
                         
 		}
                 
