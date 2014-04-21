@@ -25,16 +25,20 @@
  */
 package com.serotonin.bacnet4j;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import org.apache.log4j.Logger;
+
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.log4j.Logger;
 
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.event.DeviceEventHandler;
@@ -87,8 +91,8 @@ import com.serotonin.bacnet4j.util.RequestUtils;
  */
 public class LocalDevice {
 	private static final Logger LOG = Logger.getLogger(LocalDevice.class);
-	private static final int DEFAULT_VENDOR_ID = 132; // Blue Ridge Software
     private final int vendorId;
+    private final String vendorName;
     private final Transport transport;
     private BACnetObject configuration;
     private final List<BACnetObject> localObjects = new CopyOnWriteArrayList<BACnetObject>();
@@ -105,14 +109,21 @@ public class LocalDevice {
 
     // Event listeners
     private final DeviceEventHandler eventHandler = new DeviceEventHandler();
-
+   
     public LocalDevice(int deviceId, Transport transport) {
-    	this(DEFAULT_VENDOR_ID, deviceId, transport);
-    }
-    
-    public LocalDevice(int vendorId, int deviceId, Transport transport) {
-        this.transport = transport;
-        this.vendorId = vendorId;
+        // read config properties
+    	ClassLoader loader = this.getClass().getClassLoader();
+    	InputStream in = loader.getResourceAsStream("vendor.properties");
+    	Properties vendorProps = new Properties();
+    	try {
+			vendorProps.load(in);
+		} catch (IOException e1) {
+			LOG.warn("could not load vendor.properties");
+		}
+    	
+    	this.transport = transport;
+        this.vendorId = Integer.parseInt(vendorProps.getProperty("vendor.id","132")); // try to get id or use default
+        this.vendorName = vendorProps.getProperty("vendor.name", "Blueridge Technologies, Inc."); // try to get name or use default
         transport.setLocalDevice(this);
 
         try {
@@ -122,7 +133,7 @@ public class LocalDevice {
             configuration.setProperty(PropertyIdentifier.maxApduLengthAccepted, new UnsignedInteger(1476));
             configuration.setProperty(PropertyIdentifier.vendorIdentifier, new Unsigned16(this.vendorId));
             configuration.setProperty(PropertyIdentifier.vendorName, new CharacterString(
-            									"Blueridge Technologies, Inc."));
+            									this.vendorName));
             configuration.setProperty(PropertyIdentifier.segmentationSupported, Segmentation.segmentedBoth);
 
             SequenceOf<ObjectIdentifier> objectList = new SequenceOf<ObjectIdentifier>();
