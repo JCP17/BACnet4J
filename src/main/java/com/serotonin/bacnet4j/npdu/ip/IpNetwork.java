@@ -40,7 +40,6 @@ import com.serotonin.bacnet4j.apdu.APDU;
 import com.serotonin.bacnet4j.base.BACnetUtils;
 import com.serotonin.bacnet4j.enums.MaxApduLength;
 import com.serotonin.bacnet4j.exception.BACnetException;
-import com.serotonin.bacnet4j.exception.BACnetRejectException;
 import com.serotonin.bacnet4j.npdu.IncomingRequestParser;
 import com.serotonin.bacnet4j.npdu.IncomingRequestProcessor;
 import com.serotonin.bacnet4j.npdu.MessageValidationAssertionException;

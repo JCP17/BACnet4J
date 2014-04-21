@@ -110,20 +110,29 @@ public class LocalDevice {
     // Event listeners
     private final DeviceEventHandler eventHandler = new DeviceEventHandler();
    
-    public LocalDevice(int deviceId, Transport transport) {
+    public LocalDevice(int deviceId, Transport transport) throws BACnetRuntimeException {
         // read config properties
     	ClassLoader loader = this.getClass().getClassLoader();
     	InputStream in = loader.getResourceAsStream("vendor.properties");
     	Properties vendorProps = new Properties();
     	try {
-			vendorProps.load(in);
-		} catch (IOException e1) {
-			LOG.warn("could not load vendor.properties");
-		}
-    	
+                vendorProps.load(in);
+        } catch (IOException e1) {
+                LOG.warn("could not load vendor.properties");
+        }
+        
     	this.transport = transport;
-        this.vendorId = Integer.parseInt(vendorProps.getProperty("vendor.id","132")); // try to get id or use default
+        try {
+                this.vendorId = Integer.parseInt(vendorProps.getProperty("vendor.id", "132")); // try to get id or use default
+        } catch (NumberFormatException ex) {
+                LOG.fatal("Cannot get vendor.id from properties file, must be of type integer! (" + ex.getMessage() + ")");
+                throw new BACnetRuntimeException("Cannot get vendorId: " + ex.getMessage());
+        }
         this.vendorName = vendorProps.getProperty("vendor.name", "Blueridge Technologies, Inc."); // try to get name or use default
+        if (this.vendorName.isEmpty() || this.vendorName.length() > 255) {
+                LOG.fatal("Cannot get vendor.name from properties file, must not be empty or longer than 256 characters.");
+                throw new BACnetRuntimeException("vendorName cannot be empty or longer than 256 characters.");
+        }
         transport.setLocalDevice(this);
 
         try {
