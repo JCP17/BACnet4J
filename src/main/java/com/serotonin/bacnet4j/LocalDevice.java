@@ -116,13 +116,13 @@ public class LocalDevice {
     	InputStream in = loader.getResourceAsStream("vendor.properties");
     	Properties vendorProps = new Properties();
     	try {
-			vendorProps.load(in);
-		} catch (IOException e1) {
-			LOG.warn("could not load vendor.properties");
-		}
+                vendorProps.load(in);
+        } catch (IOException e1) {
+                LOG.warn("could not load vendor.properties");
+        }
     	
     	this.transport = transport;
-        this.vendorId = Integer.parseInt(vendorProps.getProperty("vendor.id","132")); // try to get id or use default
+        this.vendorId = Integer.parseInt(vendorProps.getProperty("vendor.id", "132")); // try to get id or use default
         this.vendorName = vendorProps.getProperty("vendor.name", "Blueridge Technologies, Inc."); // try to get name or use default
         transport.setLocalDevice(this);
 
