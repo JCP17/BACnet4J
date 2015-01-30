@@ -9,3 +9,10 @@ bin/*
 build
 .gradle
 nbproject
+#Eclipse
+.classpath
+.project
+.settings/
+#Maven
+log/
+target/
