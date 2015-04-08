@@ -52,3 +52,56 @@ jar {
 	}
 	from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
 }
+
+task ipkg << {
+	
+	//do a filter copy of ipkg control file
+	copy() {
+	   from 'ipkg'
+	   into 'build/ipkg'
+		   include 'control.tpl'
+		   filter(ReplaceTokens, tokens:[BUILDID:buildNumber])
+		   rename 'control.tpl','control'
+	}
+	
+	copy() {
+	   from 'ipkg'
+	   into 'build/ipkg'
+		   include 'debian-binary'
+	  }
+	copy {
+		from 'build/libs/'
+		into 'build/renamed'
+		 include '*.jar'
+//		 rename '(.+)','z-$1'
+	}
+	
+	ant.tar(tarfile: 'build/ipkg/control.tar') {
+	  ant.tarfileset(prefix: './', dir: 'build/ipkg/') {
+		ant.include(name: 'control')
+		}
+	  ant.tarfileset(prefix: './', dir: 'ipkg/', filemode:'755') {
+		ant.include(name: 'postinst')
+		//preinst, prerm und postrm auch noch moeglich
+	  }
+	}
+	ant.gzip(src: 'build/ipkg/control.tar', zipfile: 'build/ipkg/control.tar.gz')
+
+	ant.tar(tarfile: 'build/ipkg/data.tar'){
+	  ant.tarfileset(prefix: './opt/osgi/bundle/framework', dir: 'build/renamed') {
+		ant.include(name: '*.jar')
+	  }
+	}
+	ant.gzip(src: 'build/ipkg/data.tar', zipfile: 'build/ipkg/data.tar.gz')
+
+	ant.tar(tarfile:'build/ipkg/dcr.tar') {
+	 ant.tarfileset(prefix: './', dir:'build/ipkg/'){
+	  ant.include (name:'control.tar.gz')
+	  ant.include (name:'data.tar.gz')
+	  ant.include (name:'debian-binary')
+	  }
+	 }
+	ant.gzip(src:'build/ipkg/dcr.tar', zipfile: "build/ipkg/${project.name}-${version}.ipk")
+		
+}
+
