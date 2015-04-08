@@ -25,6 +25,8 @@ apply {
 
 group = 'serotonin'
 version = '1.0-SNAPSHOT'
+def buildNumber = System.getenv()['BUILD_NUMBER']
+if(buildNumber==null) buildNumber='LOCAL'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
@@ -60,7 +62,7 @@ task ipkg << {
 	   from 'ipkg'
 	   into 'build/ipkg'
 		   include 'control.tpl'
-		   filter(ReplaceTokens, tokens:[BUILDID:buildNumber])
+		   filter(org.apache.tools.ant.filters.ReplaceTokens, tokens:[BUILDID:buildNumber])
 		   rename 'control.tpl','control'
 	}
 	
